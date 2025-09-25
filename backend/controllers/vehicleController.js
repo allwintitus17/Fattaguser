@@ -1,8 +1,26 @@
 const Vehicle = require('../models/vehicleModel');
 
 // Create Vehicle
+  
 exports.createVehicle = async (req, res) => {
   try {
+    const { ownerId, registrationNumber } = req.body;
+    
+    // Check if vehicle already exists for this owner
+    const existingVehicle = await Vehicle.findOne({ ownerId });
+    
+    if (existingVehicle) {
+      // Update existing vehicle instead of creating new one
+      const updatedVehicle = await Vehicle.findOneAndUpdate(
+        { ownerId },
+        req.body,
+        { new: true, runValidators: true }
+      );
+      return res.status(200).json(updatedVehicle);
+    }
+    
+    
+    // Create new vehicle only if none exists
     const vehicle = new Vehicle(req.body);
     await vehicle.save();
     res.status(201).json(vehicle);

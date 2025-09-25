@@ -3,6 +3,15 @@ const UserDetails = require('../models/personaldetailsModel');
 // Create new user details
 const createUserDetails = async (req, res) => {
   try {
+    const { authUserId } = req.body;
+
+    // check if user already exists
+    const existingUser = await UserDetails.findOne({ authUserId });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // create new record if not exists
     const userDetails = await UserDetails.create(req.body);
     res.status(201).json(userDetails);
   } catch (error) {

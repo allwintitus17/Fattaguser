@@ -12,6 +12,11 @@ function Home() {
     <Link to='/newfasttag' className='btn btn-reverse'>
     <FaQuestionCircle/>New FastTag
     </Link>
+
+    <Link to='/simulation' className='btn btn-reverse'>
+    <FaQuestionCircle/>SIMULATION
+    </Link>
+    
     </>
   )
 }

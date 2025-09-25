@@ -15,11 +15,12 @@ const personalDetailsSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
-  aadharNumber: {
-    type: String,
-    required: true,
-    match: [/^\d{4}-\d{4}-\d{4}$/, 'Aadhar format must be XXXX-XXXX-XXXX']
-  },
+aadharNumber: {
+  type: String,
+  required: true,
+  match: [/^\d{16}$/, 'Aadhar must be a 16-digit number']
+},
+
   panNumber: {
     type: String,
     required: true,

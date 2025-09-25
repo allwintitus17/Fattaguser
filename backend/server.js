@@ -4,6 +4,7 @@
     const cors = require('cors')
     const connectionDB=require('./config/db')
     const PORT =process.env.PORT || 5000
+    const HOST="0.0.0.0";
     const app=express()
     const {errorHandler}=require('./middleware/errorMiddleware')
     connectionDB()
@@ -18,8 +19,8 @@
     app.use('/api/users',require('./routes/userRoutes'))
     app.use('/api/user-details',require('./routes/personalRoutes'));
     app.use('/api/vehicles',require('./routes/vehicleRoutes'))
-    app.use('/api/bank-details',require('./routes/bankDetailsRoutes'));
+    app.use('/api/payments',require('./routes/paymentRoutes'))
     app.use(errorHandler)
-    app.listen(PORT ,()=>{
+    app.listen(PORT ,HOST,()=>{
         console.log(`Server Started on port ${PORT}`)
     })
