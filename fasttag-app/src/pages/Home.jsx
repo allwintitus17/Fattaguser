@@ -1,4 +1,3 @@
-import React from 'react'
 import {Link} from 'react-router-dom'
 import {FaQuestionCircle,FaTicketAlt} from 'react-icons/fa'
 function Home() {
@@ -17,6 +16,9 @@ function Home() {
     <FaQuestionCircle/>SIMULATION
     </Link>
     
+    <Link to='/mytag' className='btn btn-reverse'>
+    <FaTicketAlt/> My Tags
+    </Link>
     </>
   )
 }

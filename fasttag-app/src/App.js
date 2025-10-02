@@ -75,6 +75,11 @@ function App() {
             <Route path="/simulation" element={<Simulation />}/>
             <Route path='/simulation' element={<Simulation/>}/>
              </Route>
+             <Route element={<PrivateRoute/>}/>
+             <Route path="/mytag" element={<Mytag/>}>
+             <Route path='/mytag' element={<Mytag/>}/>
+             </Route>
+             
           </Routes>
         </div>
       </Router>
