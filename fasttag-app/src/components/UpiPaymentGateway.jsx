@@ -694,12 +694,13 @@
 // };
 
 // export default UpiPaymentGateway;
+// 
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { createPayment, resetPayment } from '../features/payment/paymentSlice';
-import { createTagFromPayment, getUserTags } from '../features/tag/tagSlice';
+import { createTagFromPayment, rechargeTag, getUserTags } from '../features/tag/tagSlice';
 
 const UpiPaymentGateway = ({ 
   isOpen, 
@@ -709,7 +710,10 @@ const UpiPaymentGateway = ({
   personalData, 
   user,
   vehicleId,
-  personalDetailsId 
+  personalDetailsId,
+  tagId = null, // NEW: For recharge
+  isRecharge = false, // NEW: Flag to indicate recharge
+  onSuccess = null // NEW: Success callback
 }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -724,7 +728,7 @@ const UpiPaymentGateway = ({
 
   const [paymentStep, setPaymentStep] = useState('initiate');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('upi');
-  const tagCreatedRef = useRef(false);
+  const operationCompletedRef = useRef(false);
 
   const paymentMethods = [
     { id: 'upi', name: 'UPI Payment', icon: '💳' },
@@ -733,39 +737,52 @@ const UpiPaymentGateway = ({
     { id: 'wallet', name: 'Digital Wallet', icon: '📱' }
   ];
 
-  // Reset on modal open
   useEffect(() => {
     if (isOpen) {
       setPaymentStep('initiate');
-      tagCreatedRef.current = false;
+      operationCompletedRef.current = false;
       dispatch(resetPayment());
     }
   }, [isOpen, dispatch]);
 
-  // Handle payment success → create tag
+  // Handle payment success
   useEffect(() => {
-    console.log('Payment State:', { paymentSuccess, paymentError, currentPayment, paymentStep });
+    console.log('Payment State:', { paymentSuccess, paymentError, currentPayment, paymentStep, isRecharge });
 
-    if (paymentSuccess && currentPayment && paymentStep === 'initiate' && !tagCreatedRef.current) {
-      console.log('Payment successful, creating FastTag...');
-      tagCreatedRef.current = true;
+    if (paymentSuccess && currentPayment && paymentStep === 'initiate' && !operationCompletedRef.current) {
+      console.log('Payment successful');
+      operationCompletedRef.current = true;
 
-      const tagPayload = {
-        paymentId: currentPayment._id || currentPayment.paymentId,
-        vehicleId: vehicleId,
-        personalDetailsId: personalDetailsId,
-        initialBalance: parseFloat(amount),
-        metadata: {
-          deviceInfo: navigator.userAgent,
-          appVersion: '1.0.0',
-          source: 'web',
-          paymentMethod: selectedPaymentMethod
-        }
-      };
+      if (isRecharge) {
+        // Handle recharge
+        console.log('Processing recharge for tagId:', tagId);
+        setPaymentStep('processing');
+        
+        dispatch(rechargeTag({
+          tagId: tagId,
+          amount: parseFloat(amount),
+          paymentId: currentPayment._id || currentPayment.paymentId,
+          description: `Recharge of ₹${amount}`
+        }));
+      } else {
+        // Handle new FastTag creation
+        console.log('Creating new FastTag');
+        const tagPayload = {
+          paymentId: currentPayment._id || currentPayment.paymentId,
+          vehicleId: vehicleId,
+          personalDetailsId: personalDetailsId,
+          initialBalance: parseFloat(amount),
+          metadata: {
+            deviceInfo: navigator.userAgent,
+            appVersion: '1.0.0',
+            source: 'web',
+            paymentMethod: selectedPaymentMethod
+          }
+        };
 
-      console.log('Creating FastTag with payload:', tagPayload);
-      dispatch(createTagFromPayment(tagPayload));
-      setPaymentStep('processing');
+        dispatch(createTagFromPayment(tagPayload));
+        setPaymentStep('processing');
+      }
     }
 
     if (paymentError && paymentStep === 'initiate') {
@@ -773,35 +790,40 @@ const UpiPaymentGateway = ({
       toast.error(paymentMessage || 'Payment failed');
       setPaymentStep('failed');
     }
-  }, [paymentSuccess, paymentError, currentPayment, paymentStep, dispatch, vehicleId, personalDetailsId, amount, selectedPaymentMethod, paymentMessage]);
+  }, [paymentSuccess, paymentError, currentPayment, paymentStep, dispatch, vehicleId, personalDetailsId, amount, selectedPaymentMethod, paymentMessage, isRecharge, tagId]);
 
-  // Handle tag creation result
+  // Handle operation result (recharge or tag creation)
   useEffect(() => {
     console.log('Tag State:', { tagSuccess, tagError, tagLoading, paymentStep });
 
     if (tagSuccess && paymentStep === 'processing') {
-      console.log('FastTag created successfully!');
+      console.log('Operation completed successfully!');
       setPaymentStep('success');
-      toast.success('Payment completed and FastTag created!');
+      
+      if (isRecharge) {
+        toast.success('Recharge completed successfully!');
+      } else {
+        toast.success('Payment completed and FastTag created!');
+      }
     }
 
     if (tagError && paymentStep === 'processing') {
-      console.error('FastTag creation error:', tagMessage);
-      toast.error('Payment successful but FastTag creation failed. Please contact support.');
-      setPaymentStep('success'); // Show success anyway since payment worked
+      console.error('Operation error:', tagMessage);
+      toast.error(tagMessage || 'Operation failed');
+      setPaymentStep('failed');
     }
-  }, [tagSuccess, tagError, tagLoading, paymentStep, tagMessage]);
+  }, [tagSuccess, tagError, tagLoading, paymentStep, tagMessage, isRecharge]);
 
   const initiatePayment = () => {
     if (!vehicleId || !personalDetailsId) {
-      toast.error('Vehicle and personal details must be saved first');
+      toast.error('Vehicle and personal details required');
       return;
     }
 
     const mockTransactionId = 'TXN' + Date.now() + Math.random().toString(36).substring(2, 8).toUpperCase();
 
     const paymentData = {
-      paymentFlag: 0,
+      paymentFlag: isRecharge ? 1 : 0, // 1 for recharge, 0 for new FastTag
       amount: parseFloat(amount),
       vehicleId,
       personalDetailsId,
@@ -827,7 +849,9 @@ const UpiPaymentGateway = ({
         appVersion: '1.0.0',
         source: 'web',
         paymentType: selectedPaymentMethod,
-        simulatedPayment: true
+        simulatedPayment: true,
+        isRecharge: isRecharge,
+        tagId: tagId || null
       }
     };
 
@@ -835,18 +859,24 @@ const UpiPaymentGateway = ({
     dispatch(createPayment(paymentData));
   };
 
-  const handleContinueToMyTag = () => {
-    // Refresh tags before navigating
-    dispatch(getUserTags());
-    dispatch(resetPayment());
-    tagCreatedRef.current = false;
-    onClose();
-    navigate('/mytag');
+  const handleContinue = () => {
+    if (isRecharge && onSuccess) {
+      // Call success callback for recharge
+      onSuccess();
+      onClose();
+    } else {
+      // Navigate to MyTag for new FastTag creation
+      dispatch(getUserTags());
+      dispatch(resetPayment());
+      operationCompletedRef.current = false;
+      onClose();
+      navigate('/mytag');
+    }
   };
 
   const handleClose = () => {
     dispatch(resetPayment());
-    tagCreatedRef.current = false;
+    operationCompletedRef.current = false;
     onClose();
   };
 
@@ -863,7 +893,7 @@ const UpiPaymentGateway = ({
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      zIndex: 1000
+      zIndex: 2000
     }}>
       <div className="payment-modal" style={{
         backgroundColor: 'white',
@@ -896,7 +926,9 @@ const UpiPaymentGateway = ({
         {/* Initiate */}
         {paymentStep === 'initiate' && (
           <div style={{ textAlign: 'center' }}>
-            <h2 style={{ color: '#333', marginBottom: '1rem' }}>Complete Payment</h2>
+            <h2 style={{ color: '#333', marginBottom: '1rem' }}>
+              {isRecharge ? 'Recharge FastTag' : 'Complete Payment'}
+            </h2>
             
             <div style={{
               backgroundColor: '#f8f9fa',
@@ -907,6 +939,9 @@ const UpiPaymentGateway = ({
               <h3 style={{ color: '#495057', marginBottom: '1rem' }}>Payment Summary</h3>
               <div style={{ textAlign: 'left' }}>
                 <p><strong>Amount:</strong> ₹{amount}</p>
+                {isRecharge && (
+                  <p><strong>FastTag ID:</strong> {tagId}</p>
+                )}
                 <p><strong>Vehicle:</strong> {vehicleData.registrationNumber}</p>
                 <p><strong>Type:</strong> {vehicleData.vehicleType}</p>
                 <p><strong>Customer:</strong> {personalData.fullName}</p>
@@ -971,9 +1006,11 @@ const UpiPaymentGateway = ({
             }}>
               ⚙️
             </div>
-            <h2 style={{ color: '#007bff', marginBottom: '1rem' }}>Creating Your FastTag...</h2>
+            <h2 style={{ color: '#007bff', marginBottom: '1rem' }}>
+              {isRecharge ? 'Processing Recharge...' : 'Creating Your FastTag...'}
+            </h2>
             <p style={{ color: '#666', fontSize: '14px' }}>
-              Please wait while we set up your FastTag account.
+              Please wait while we process your request.
             </p>
           </div>
         )}
@@ -989,7 +1026,9 @@ const UpiPaymentGateway = ({
             }}>
               ✅
             </div>
-            <h2 style={{ color: '#28a745', marginBottom: '1rem' }}>Payment Done!</h2>
+            <h2 style={{ color: '#28a745', marginBottom: '1rem' }}>
+              {isRecharge ? 'Recharge Successful!' : 'Payment Done!'}
+            </h2>
             
             <div style={{
               backgroundColor: '#d4edda',
@@ -1001,15 +1040,20 @@ const UpiPaymentGateway = ({
               <p><strong>Payment ID:</strong> {currentPayment?.paymentId || currentPayment?._id || `PAY${Date.now()}`}</p>
               <p><strong>Amount:</strong> ₹{amount}</p>
               <p><strong>Method:</strong> {paymentMethods.find(m => m.id === selectedPaymentMethod)?.name}</p>
+              {isRecharge && (
+                <p><strong>FastTag ID:</strong> {tagId}</p>
+              )}
               <p><strong>Status:</strong> ✅ Completed</p>
             </div>
 
             <p style={{ marginBottom: '1.5rem', color: '#666', fontSize: '14px' }}>
-              Your FastTag has been created successfully and is ready to use!
+              {isRecharge 
+                ? 'Your FastTag has been recharged successfully!' 
+                : 'Your FastTag has been created successfully and is ready to use!'}
             </p>
 
             <button
-              onClick={handleContinueToMyTag}
+              onClick={handleContinue}
               style={{
                 backgroundColor: '#28a745',
                 color: 'white',
@@ -1022,7 +1066,7 @@ const UpiPaymentGateway = ({
                 width: '100%'
               }}
             >
-              Go to My FastTag →
+              {isRecharge ? 'Continue' : 'Go to My FastTag →'}
             </button>
           </div>
         )}
@@ -1033,10 +1077,12 @@ const UpiPaymentGateway = ({
             <div style={{ fontSize: '48px', color: '#dc3545', marginBottom: '1rem' }}>
               ❌
             </div>
-            <h2 style={{ color: '#dc3545', marginBottom: '1rem' }}>Payment Failed</h2>
+            <h2 style={{ color: '#dc3545', marginBottom: '1rem' }}>
+              {isRecharge ? 'Recharge Failed' : 'Payment Failed'}
+            </h2>
             
             <p style={{ marginBottom: '1.5rem', color: '#666' }}>
-              {paymentMessage || 'Payment could not be processed. Please try again.'}
+              {paymentMessage || tagMessage || 'Operation could not be processed. Please try again.'}
             </p>
 
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -1057,7 +1103,7 @@ const UpiPaymentGateway = ({
               <button
                 onClick={() => {
                   setPaymentStep('initiate');
-                  tagCreatedRef.current = false;
+                  operationCompletedRef.current = false;
                   dispatch(resetPayment());
                 }}
                 style={{
