@@ -68,7 +68,7 @@
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(cors());
-  // app.use(intranetFirewall);
+  app.use(intranetFirewall);
   // --- Request logger middleware (prints IP, method, route, worker PID) ---
 
   // ------------------------------------------------------------------------
