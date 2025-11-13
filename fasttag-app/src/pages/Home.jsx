@@ -19,6 +19,10 @@ function Home() {
     <Link to='/mytag' className='btn btn-reverse'>
     <FaTicketAlt/> My Tags
     </Link>
+
+    <Link to='/dashboard' className='btn btn-reverse'>
+    <FaTicketAlt/> Dashboard
+    </Link>
     </>
   )
 }

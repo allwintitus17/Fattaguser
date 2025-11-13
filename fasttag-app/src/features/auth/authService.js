@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const API_URL='/api/users/'
-axios.defaults.baseURL='https://t873snzg-5000.inc1.devtunnels.ms/';
+axios.defaults.baseURL='http://localhost:5000/';
 
 //Register user
 const register = async (userData)=>{

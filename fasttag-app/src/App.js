@@ -44,6 +44,7 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import Newfasttag from './pages/Newfasttag';
 import Mytag from './pages/Mytag';
+import Dashboard from './pages/dashboard';
 import Simulation from './pages/Simulation'
 import PaymentResult from './pages/PaymentResult';
 import Header from './components/Header';
@@ -79,7 +80,10 @@ function App() {
              <Route path="/mytag" element={<Mytag/>}>
              <Route path='/mytag' element={<Mytag/>}/>
              </Route>
-             
+             <Route element={<PrivateRoute/>}/>
+             <Route path="/dashboard" element={<Dashboard/>}>
+             <Route path='/dashboard' element={<Dashboard/>}/>
+             </Route>
           </Routes>
         </div>
       </Router>
